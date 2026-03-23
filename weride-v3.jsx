@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, Fragment } from "react";
+import { useState, useEffect, useCallback, Fragment, memo, useRef } from "react";
+import { HexColorPicker } from "react-colorful";
 
 /* ═══════════════════════════════════════════════════════
    WERIDE — FULLY INTERACTIVE PROTOTYPE v3.1
@@ -266,6 +267,62 @@ const ACHIEVEMENTS = [
   { icon: "🌅", name: "Scenic Hunter", desc: "Visit 25 scenic spots", p: 18, t: 25, xp: 200, done: false },
   { icon: "⚡", name: "Century Rider", desc: "Complete a 100km+ ride", p: 1, t: 1, xp: 100, done: true },
 ];
+
+// ── Swatch: click swatch to expand inline color picker ──
+const Swatch = memo(function Swatch({ tokenKey, value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  // Close picker on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+  return (
+    <div ref={wrapRef} style={{ padding: "2px 0", position: "relative" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        <div onClick={() => setOpen(o => !o)} style={{ width: 20, height: 20, borderRadius: 4, background: value, border: "1px solid rgba(0,0,0,0.1)", cursor: "pointer", flexShrink: 0 }} />
+        <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 8.5, color: "#6B5E50", fontWeight: 500, width: 56, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tokenKey}</span>
+        <input
+          type="text"
+          value={value}
+          onChange={e => { const v = e.target.value; if (/^#[0-9a-fA-F]{0,6}$/.test(v)) onChange(tokenKey, v); }}
+          onBlur={e => { if (!/^#[0-9a-fA-F]{6}$/.test(e.target.value)) onChange(tokenKey, value); }}
+          style={{ fontFamily: "monospace", fontSize: 8.5, color: "#1A1612", background: "#F5F0E6", border: "1px solid #E8E2D8", borderRadius: 3, padding: "1px 3px", width: 56, outline: "none" }}
+        />
+      </div>
+      {open && (
+        <div style={{ position: "absolute", left: 0, top: 26, zIndex: 999, borderRadius: 10, overflow: "hidden", boxShadow: "0 8px 30px rgba(0,0,0,0.18)" }}>
+          <HexColorPicker color={value} onChange={c => onChange(tokenKey, c)} style={{ width: 150, height: 120 }} />
+        </div>
+      )}
+    </div>
+  );
+});
+
+// ── Token Panel: top-level stable component ──
+const TokenPanel = memo(function TokenPanel({ hexTokens, onUpdate, onReset, label, accentColor }) {
+  return (
+    <div style={{ width: 175, flexShrink: 0, display: "flex", flexDirection: "column", alignSelf: "flex-start", position: "sticky", top: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+        <div style={{ width: 8, height: 8, borderRadius: "50%", background: accentColor }} />
+        <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 10, fontWeight: 700, color: "#1A1612", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
+      </div>
+      <div style={{ background: "#fff", border: "1px solid #F0EBE0", borderRadius: 14, padding: "10px 12px", maxHeight: 620, overflowY: "auto" }}>
+        {TOKEN_GROUPS.map((group, gi) => (
+          <div key={group.name} style={{ marginBottom: gi < TOKEN_GROUPS.length - 1 ? 6 : 0 }}>
+            <p style={{ fontFamily: "'Outfit',sans-serif", fontSize: 8, color: "#9B8E7E", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 2px", paddingTop: gi > 0 ? 6 : 0, borderTop: gi > 0 ? "1px solid #F0EBE0" : "none" }}>{group.name}</p>
+            {group.keys.map(k => <Swatch key={k} tokenKey={k} value={hexTokens[k]} onChange={onUpdate} />)}
+          </div>
+        ))}
+        <div style={{ paddingTop: 8, marginTop: 6, borderTop: "1px solid #F0EBE0" }}>
+          <button onClick={onReset} style={{ fontFamily: "'Outfit',sans-serif", fontSize: 9, color: "#EF4444", fontWeight: 600, background: "none", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 5, padding: "4px 10px", cursor: "pointer", width: "100%" }}>Reset All</button>
+        </div>
+      </div>
+    </div>
+  );
+});
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    MAIN APP — Dual-Theme Side-by-Side Comparison
@@ -1222,100 +1279,42 @@ export default function App() {
   );
 
   // ── Color Swatch + Picker ──
-  const Swatch = ({ tokenKey, value, onChange }) => (
-    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", padding: "3px 0" }}>
-      <div style={{ position: "relative", width: 20, height: 20, borderRadius: 5, background: value, border: "1px solid rgba(0,0,0,0.1)", flexShrink: 0 }}>
-        <input type="color" value={value} onChange={e => onChange(tokenKey, e.target.value)} style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%" }} />
-      </div>
-      <span style={{ fontFamily: LIGHT.font, fontSize: 9, color: "#6B5E50", fontWeight: 500, width: 62, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tokenKey}</span>
-      <input
-        type="text"
-        value={value}
-        onChange={e => { const v = e.target.value; if (/^#[0-9a-fA-F]{0,6}$/.test(v)) onChange(tokenKey, v); }}
-        onBlur={e => { const v = e.target.value; if (!/^#[0-9a-fA-F]{6}$/.test(v)) onChange(tokenKey, value); }}
-        style={{ fontFamily: "'Outfit',monospace", fontSize: 9, color: "#1A1612", background: "#F5F0E6", border: "1px solid #E8E2D8", borderRadius: 4, padding: "2px 4px", width: 62, outline: "none" }}
-      />
-    </label>
-  );
-
   return (
     <div style={{ minHeight: "100vh", background: "#F5F0E8", fontFamily: LIGHT.font }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Outfit:wght@300;400;500;600;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}::-webkit-scrollbar{display:none}body{background:#F5F0E8!important}`}</style>
 
       {/* Header */}
-      <div style={{ textAlign: "center", padding: "44px 24px 6px" }}>
+      <div style={{ textAlign: "center", padding: "44px 24px 8px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 6 }}>
           <svg width="24" height="24" viewBox="0 0 48 48" fill="none"><path d="M8 36C8 36 12 16 24 16C36 16 40 36 40 36" stroke={lightTheme.accent} strokeWidth="3" strokeLinecap="round"/><circle cx="12" cy="36" r="5" stroke={lightTheme.text} strokeWidth="2" fill="none"/><circle cx="36" cy="36" r="5" stroke={lightTheme.text} strokeWidth="2" fill="none"/></svg>
           <span style={{ fontFamily: LIGHT.serif, fontSize: 22, color: LIGHT.text, letterSpacing: "-0.02em" }}>WeRide</span>
         </div>
-        <p style={{ fontFamily: LIGHT.font, fontSize: 11, color: LIGHT.textMuted, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 500 }}>Interactive Prototype · Day & Night Mode Comparison</p>
+        <p style={{ fontFamily: LIGHT.font, fontSize: 11, color: LIGHT.textMuted, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 500 }}>Interactive Prototype · Live Design Token Editor</p>
       </div>
 
-      {/* ═══ COLOR TOKEN PICKER PANEL ═══ */}
-      <div style={{ maxWidth: 700, margin: "0 auto", padding: "12px 24px 0" }}>
-        <button onClick={() => setPickerOpen(o => !o)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "#fff", border: `1px solid ${LIGHT.border}`, borderRadius: pickerOpen ? "14px 14px 0 0" : 14, padding: "12px 18px", cursor: "pointer" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={LIGHT.accent} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
-            <span style={{ fontFamily: LIGHT.serif, fontSize: 14, color: LIGHT.text }}>Design Tokens</span>
-            <span style={{ fontFamily: LIGHT.font, fontSize: 10, color: LIGHT.textMuted, fontWeight: 500 }}>({Object.keys(LIGHT_HEX).length} colors per theme)</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {!pickerOpen && <div style={{ display: "flex", gap: 2 }}>{["accent","green","blue","red","text"].map(k => <div key={k} style={{ width: 12, height: 12, borderRadius: 3, background: lightHex[k], border: "1px solid rgba(0,0,0,0.08)" }} />)}</div>}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={LIGHT.textMuted} strokeWidth="2" strokeLinecap="round" style={{ transform: pickerOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }}><path d="M6 9l6 6 6-6"/></svg>
-          </div>
-        </button>
+      {/* ═══ MAIN LAYOUT: [Light Tokens] [Light Phone] [Dark Phone] [Dark Tokens] ═══ */}
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", gap: 20, padding: "20px 20px 48px", flexWrap: "nowrap", overflowX: "auto" }}>
 
-        {pickerOpen && (
-          <div style={{ background: "#fff", border: `1px solid ${LIGHT.border}`, borderTop: "none", borderRadius: "0 0 14px 14px", padding: "16px 18px 18px" }}>
-            {/* Column headers */}
-            <div style={{ display: "flex", gap: 20, marginBottom: 12 }}>
-              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: lightHex.accent }} />
-                <span style={{ fontFamily: LIGHT.font, fontSize: 11, fontWeight: 700, color: LIGHT.text, textTransform: "uppercase", letterSpacing: "0.06em" }}>Day Mode</span>
-              </div>
-              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: darkHex.accent }} />
-                <span style={{ fontFamily: LIGHT.font, fontSize: 11, fontWeight: 700, color: LIGHT.text, textTransform: "uppercase", letterSpacing: "0.06em" }}>Night Mode</span>
-              </div>
-            </div>
+        {/* Left: Light mode tokens */}
+        <TokenPanel hexTokens={lightHex} onUpdate={updateLight} onReset={resetTokens} label="Day Mode Tokens" accentColor={lightHex.accent} />
 
-            {/* Token groups */}
-            {TOKEN_GROUPS.map(group => (
-              <div key={group.name} style={{ marginBottom: 10 }}>
-                <p style={{ fontFamily: LIGHT.font, fontSize: 9, color: LIGHT.textMuted, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 4px", paddingTop: 6, borderTop: `1px solid ${LIGHT.border}` }}>{group.name}</p>
-                <div style={{ display: "flex", gap: 20 }}>
-                  {/* Light column */}
-                  <div style={{ flex: 1 }}>
-                    {group.keys.map(k => <Swatch key={k} tokenKey={k} value={lightHex[k]} onChange={updateLight} />)}
-                  </div>
-                  {/* Dark column */}
-                  <div style={{ flex: 1 }}>
-                    {group.keys.map(k => <Swatch key={k} tokenKey={k} value={darkHex[k]} onChange={updateDark} />)}
-                  </div>
-                </div>
-              </div>
-            ))}
+        {/* Center: Both phones */}
+        <div style={{ display: "flex", gap: 32, flexShrink: 0 }}>
+          <PhoneFrame
+            theme={lightTheme}
+            label="Day Ride"
+            sublabel="Outdoor · Sunlight · Stops"
+          />
+          <PhoneFrame
+            theme={darkTheme}
+            label="Night Ride"
+            sublabel="Dusk · Tunnels · Low Light"
+          />
+        </div>
 
-            {/* Reset button */}
-            <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 8, borderTop: `1px solid ${LIGHT.border}` }}>
-              <button onClick={resetTokens} style={{ fontFamily: LIGHT.font, fontSize: 10, color: LIGHT.red, fontWeight: 600, background: "none", border: `1px solid ${LIGHT.red}30`, borderRadius: 6, padding: "5px 14px", cursor: "pointer" }}>Reset to Defaults</button>
-            </div>
-          </div>
-        )}
-      </div>
+        {/* Right: Dark mode tokens */}
+        <TokenPanel hexTokens={darkHex} onUpdate={updateDark} onReset={resetTokens} label="Night Mode Tokens" accentColor={darkHex.accent} />
 
-      {/* Dual Phone Layout */}
-      <div style={{ display: "flex", justifyContent: "center", gap: 48, padding: "24px 24px 48px", flexWrap: "wrap" }}>
-        <PhoneFrame
-          theme={lightTheme}
-          label="Day Ride"
-          sublabel="Outdoor · Sunlight · Stops"
-        />
-        <PhoneFrame
-          theme={darkTheme}
-          label="Night Ride"
-          sublabel="Dusk · Tunnels · Low Light"
-        />
       </div>
     </div>
   );
